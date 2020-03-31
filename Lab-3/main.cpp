@@ -1,12 +1,15 @@
 #include <iostream>
 #include <string>
 #include <random>
+#include <array>
 
 using namespace std;
 
-constexpr int g_totalTime = /*15*/86400;
-constexpr int g_maxFileSize = 10;
-constexpr int g_maxInterval = 10;
+constexpr time_t g_totalTime       = 15;
+//constexpr time_t g_totalTime   = 86400;
+constexpr int    g_numIterations   = 5;
+constexpr int    g_maxFileSize     = 10;
+constexpr time_t g_maxInterval     = 10;
 
 int64_t randR(int64_t _from, int64_t _to) {
 	static random_device rd;
@@ -16,15 +19,15 @@ int64_t randR(int64_t _from, int64_t _to) {
 
 class Delay {
 private:
-	const int m_maxInterval;
+	const time_t m_maxInterval;
 
-	int m_delayTime{};
+	time_t m_delayTime{};
 
 public:
-	Delay(int _maxInterval = 10) : m_maxInterval(_maxInterval) {}
+	Delay(time_t _maxInterval = 10) : m_maxInterval(_maxInterval) {}
 
-	int getMaxInterval() const { return m_maxInterval; }
-	int getInterval() const { return m_delayTime; }
+	time_t getMaxInterval() const { return m_maxInterval; }
+	time_t getInterval() const { return m_delayTime; }
 
 	int tick() {
 		if (m_delayTime > 0) {
@@ -33,9 +36,9 @@ public:
 		}
 		else return 0;
 	}
-	friend int getNewDelay(Delay& _delay);
+	friend time_t getNewDelay(Delay& _delay);
 };
-int getNewDelay(Delay& _delay) {
+time_t getNewDelay(Delay& _delay) {
 	_delay.m_delayTime = randR(1, _delay.m_maxInterval);
 	return _delay.m_delayTime;
 }
@@ -86,36 +89,71 @@ public:
 
 };
 
+struct InfoNode {
+	uint32_t maxLength{};
+	double_t mean{};	
+
+	InfoNode(double_t _mean = 0, uint32_t _maxLength = 0) {
+		maxLength = _maxLength;
+		mean = _mean;
+	}
+};
+
 int main() {
 	system("chcp 65001"); system("cls");
 
-	Memory RAM;
-	Files file(g_maxFileSize);
-	Delay delay(g_maxInterval);
+	array<InfoNode, g_numIterations> collector;
+	for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
+		Memory RAM;
+		Files file(g_maxFileSize);
+		Delay delay(g_maxInterval);
 
-	cout << "Время\t\t" << "Количество сегментов" << endl;
+		cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее" << endl;
 
-	string outStr;
-	for (int time = 0; time < g_totalTime; ++time) {
-		outStr.clear();
-		outStr += to_string(time + 1) += "\t\t";
+		uint64_t totalLength{};
+		string outStr;
+		for (time_t time = 0; time < g_totalTime; ++time) {
+			outStr.clear();
+			outStr += to_string(time + 1) += "\t\t";
 
-		if (delay.getInterval() == 0) {
-			getNewFile(file); getNewDelay(delay);
-			RAM.addSegments(file);
-			outStr += to_string(RAM.getSegmentsCount()) += "\t(добавлен новый файл размером ";
-			outStr += to_string(file.getSize()) += " )";
+			if (delay.getInterval() == 0) {
+				getNewFile(file); getNewDelay(delay);
+				RAM.addSegments(file);
+				totalLength += file.getSize();
+				outStr += to_string(RAM.getSegmentsCount()) += "\t(добавлен новый файл размером ";
+				outStr += to_string(file.getSize()) += " )\t";
+			}
+			else {
+				delay.tick();
+				RAM.tick();
+				outStr += to_string(RAM.getSegmentsCount()) += "\t\t\t\t\t\t";
+			}
+			outStr += to_string(RAM.getMaxSegmentsCount()) += "\t\t";
+			outStr += to_string(static_cast<double>(totalLength) / (time + 1));
+			
+			cout << outStr << endl;
 		}
-		else {
-			delay.tick();
-			RAM.tick();
-			outStr += to_string(RAM.getSegmentsCount());
-		}
-		cout << outStr << endl;
+		collector[iterator] = InfoNode(static_cast<double>(totalLength) / g_totalTime, totalLength);
+
+		cout << "[TIME OUT]" << endl;
+		cout << "Максимальный объём занимаемой памяти: " << RAM.getMaxSegmentsCount() << endl << endl;
 	}
 
-	cout << "[TIME OUT]" << endl;
-	cout << "Максимальный объём занимаемой памяти: " << RAM.getMaxSegmentsCount() << endl;
+	cout.precision(2);
+	cout << "Итоги после " << g_numIterations << " Итераций" << endl;
+	cout << "Номер\t";
+	for (int i = 1; i <= g_numIterations; ++i) {
+		cout << i << "\t\t";
+	}
+	cout << endl << "Среднее\t";
+	for (int i = 0; i < g_numIterations; ++i) {
+		cout << collector[i].mean << "\t\t";
+	}
+	cout << endl << "Макс.\t";
+	for (int i = 0; i < g_numIterations; ++i){
+		cout << collector[i].maxLength << "\t\t";
+	}
+	cout << endl;
 
 	cout << "\nДля продолжения нажмите ввод";
 	cin.get();
