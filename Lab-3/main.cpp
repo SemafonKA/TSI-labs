@@ -1,25 +1,29 @@
-#define TEST
+//#define TEST
+//#define CHART_TEST
 
 #include <iostream>
 #include <string>
 #include <random>
-#include <vector>
 #include <array>
+#include <vector>
+#include "Dlist.h"
 
 using namespace std;
 
 #ifdef TEST
+const     bool   g_isDetailedOut     = true;
 constexpr time_t g_totalTime         = 15;
 #else
+const     bool   g_isDetailedOut     = false;
 constexpr time_t g_totalTime         = 86400;
 #endif
-constexpr int    g_numIterations     = 5;
-constexpr int    g_maxFileSize       = 10;
+constexpr size_t g_numIterations     = 7;
+constexpr size_t g_maxFileSize       = 10;
 constexpr time_t g_maxInterval       = 10;
 
 int64_t randR(int64_t _from, int64_t _to) {
 	static random_device rd;
-	if (_from > _to) swap(_from, _to);
+	if (_from > _to) std::swap(_from, _to);
 	return (rd() % (_to - _from + 1) + _from);
 }
 
@@ -53,19 +57,19 @@ time_t getNewDelay(Delay& _delay) {
 /* сам файл */
 class Files {
 private:
-	const int m_maxSize{};
+	const size_t m_maxSize{};
 
-	int m_size{};
+	size_t m_size{};
 
 public:
-	Files(int _maxFileSize) : m_maxSize(_maxFileSize) {}
+	Files(size_t _maxFileSize) : m_maxSize(_maxFileSize) {}
 
-	friend int getNewFile(Files& _file);
+	friend size_t getNewFile(Files& _file);
 
-	int getSize() const { return m_size; }
-	int getMaxSize() const { return m_maxSize; }
+	size_t getSize() const { return m_size; }
+	size_t getMaxSize() const { return m_maxSize; }
 };
-int getNewFile(Files& _file) {
+size_t getNewFile(Files& _file) {
 	_file.m_size = randR(1, _file.m_maxSize);
 	return _file.m_size;
 }
@@ -73,12 +77,12 @@ int getNewFile(Files& _file) {
 /* Память, которая хранит в себе файлы посегментно */
 class Memory {
 private:
-	int m_segmentsCount{};
-	int m_maxSegmentsCount{};
+	size_t m_segmentsCount{};
+	size_t m_maxSegmentsCount{};
 
 public:
-	int getSegmentsCount() const { return m_segmentsCount; }
-	int getMaxSegmentsCount() const { return m_maxSegmentsCount; }
+	size_t getSegmentsCount() const { return m_segmentsCount; }
+	size_t getMaxSegmentsCount() const { return m_maxSegmentsCount; }
 	
 	bool isEmpty() const { return m_segmentsCount == 0; }
 
@@ -90,7 +94,7 @@ public:
 		else return 0;
 	}
 	
-	int addSegments(const Files& _file){
+	size_t addSegments(const Files& _file){
 		m_segmentsCount += _file.getSize();
 		m_maxSegmentsCount = max(m_maxSegmentsCount, m_segmentsCount);
 		return m_segmentsCount;
@@ -109,90 +113,128 @@ struct InfoNode {
 	}
 };
 
-///* работа с графиком */
-//class Chart {
-//public:
-//	static constexpr int length = 20;
-//	static constexpr int interval = g_totalTime / length;
-//	static constexpr int heigth = 25;
-//
-//	struct Node;
-//	using  chart_t = std::vector<Node>;
-//
-//private:
-//	int      _maxBufferSize{};
-//	chart_t  _chart;
-//
-//	/* структура для коллекционирования значений в график*/
-//	struct Node {
-//		time_t  time{};
-//		int     length{};
-//
-//		Node(time_t _time, int _length) : time(_time), length(_length) {}
-//	};
-//
-//public:
-//	int pushNode(time_t _time, int _bufferSize) {
-//		if (length < 1) return 0;
-//
-//		if (_bufferSize > _maxBufferSize) _maxBufferSize = _bufferSize;
-//
-//		if (_time == 0 || _time == g_totalTime - 1 || interval <= 1 || _time % interval == 0) {
-//			_chart.push_back(Node(_time, _bufferSize));
-//			return 1;
-//		}
-//
-//		return 0;
-//	}
-//
-//	void out(void) {
-//		vector<string> outMatrix;
-//		vector<int> raws;
-//
-//		if (_maxBufferSize < heigth) {
-//			outMatrix.resize(_maxBufferSize + 2Ui64);
-//			raws.reserve(outMatrix.size());
-//
-//			for (auto& str : outMatrix) {
-//				static int i = _maxBufferSize;
-//				raws.push_back(i);
-//				str += to_string(i--) += "\t";
-//				if (i == -1) break;
-//			}
-//			raws.push_back(-1);
-//
-//			string& lastStr = outMatrix.at(outMatrix.size() - 1);
-//			lastStr += "\t";
-//			for (size_t i = 0; i < _chart.size(); ++i) {
-//				lastStr += to_string(_chart.at(i).time) + "\t";				
-//			}
-//
-//			for (auto node : _chart) {
-//				for (size_t i = 0; i < outMatrix.size() - 1; ++i) {
-//					if (node.length == raws.at(i)) {
-//						outMatrix.at(i) += "█";
-//					}
-//					outMatrix.at(i) += "\t";
-//				}
-//			}
-//
-//			for (auto str : outMatrix) {
-//				cout << str << endl;
-//			}
-//		}
-//	}
-//};
+/* работа с графиком */
+class Chart {
+public:
+	static constexpr   size_t maxWidth                = 20;
+	static constexpr   size_t maxHeigth               = 25;
+	static constexpr   size_t maxDatalistCapacity     = 120;
+	static constexpr   size_t errorValue              = -1;
+
+	const bool isOptimised = false;
+
+	struct Node;
+	using  chart_t = Dlist<Node>;
+
+private:
+	size_t   _maxBufferSize{};
+	chart_t  _chart;
+
+	/* структура для коллекционирования значений в график*/
+	struct Node {
+		time_t  time{};
+		int     length{};
+
+		Node(time_t _time = 0, int _length = 0) : time(_time), length(_length) {}
+		
+		friend std::ostream& operator<< (std::ostream& _out, Node _elem) {
+			_out << "Время: " << _elem.time << "\t | \t значение: " << _elem.length;
+			return _out;
+		}
+	};
+
+public:
+	Chart() {
+		_chart.out.mode(Mode::LIST_NUMBER);
+	}
+
+	static int64_t map(int64_t _num, int64_t _inMin, int64_t _inMax, int64_t _outMin, int64_t _outMax) {
+		return (_num - _inMin) * (_outMax - _outMin) / (_inMax - _inMin) + _outMin;
+	}
+
+	int pushNode(time_t _time, size_t _bufferSize) {
+		if (_maxBufferSize < _bufferSize) _maxBufferSize = _bufferSize;
+
+		if (isOptimised) {
+			/* Вызывается метод оптимизации списка */
+		}
+		_chart.push_back(Node(_time, _bufferSize));
+
+		return 1;
+	}
+
+	inline size_t size(void) const {
+		return _chart.size();
+	}
+
+	size_t getValue(time_t _time) const {
+		if (!isOptimised && _time < size()) {
+			return _chart.pos_back(_time).length;
+		}
+
+		return errorValue;
+	}
+
+	void out_values(void) const{		
+		_chart.out();
+	}
+
+	// Графические символы: █ ▀ ▄
+	void out_graphic(void) {
+		size_t width   = min(size(), maxWidth);
+		size_t heigth  = min(_maxBufferSize, maxHeigth);
+		time_t totalTime = _chart.back().time;
+
+		vector<string> outMatrix;
+		outMatrix.resize(heigth);
+		outMatrix[0] = "\t";
+		for (size_t i = 1; i < outMatrix.size(); ++i) {
+			outMatrix[i] = to_string(map(i - 1, 0, heigth - 2, 0, _maxBufferSize)) + "\t";
+		}
+
+		time_t currentTime{};
+		size_t currentBufferSize{};
+		size_t bufferPosOnChart{};
+		for (size_t i = 1; i < width; ++i) {
+			currentTime          = map(i - 1, 0, width - 2, 1, totalTime);
+			currentBufferSize    = getValue(currentTime);
+			bufferPosOnChart     = map(currentBufferSize, 0, _maxBufferSize, 1, heigth - 1);
+
+			outMatrix[0] += to_string(currentTime) + "\t";
+
+			for (size_t j = 1; j < outMatrix.size(); ++j) {
+				if (j == bufferPosOnChart) outMatrix[j] += "█";
+				outMatrix[j] += "\t";
+			}
+		}
+
+
+		cout << endl;
+		for (int i = outMatrix.size() - 1; i >= 0; i--) {
+			cout << outMatrix[i] << endl;
+		}/*
+		for (auto str : outMatrix) {
+			cout << str << endl;
+		}*/
+	}
+};
+
 
 int main() {
-	system("chcp 65001"); system("cls");
-
+	system("chcp 65001"); system("mode con cols=180 lines=3000");  system("cls");
+#ifdef CHART_TEST
+	
+#else
 	array<InfoNode, g_numIterations> collector;
 	for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
+		cout << "Проход номер " << iterator + 1 << endl << endl;
 		Memory RAM;
 		Files file(g_maxFileSize);
 		Delay delay(g_maxInterval);
-		
-		cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее" << endl;
+		Chart chart;
+
+		if (g_isDetailedOut) 
+			cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее" << endl;
 
 		uint64_t totalLength{};
 		string outStr;
@@ -212,19 +254,25 @@ int main() {
 				RAM.tick();
 				outStr += to_string(RAM.getSegmentsCount()) += "\t\t\t\t\t\t";
 			}
+			chart.pushNode(time + 1, RAM.getSegmentsCount());
+
 			outStr += to_string(RAM.getMaxSegmentsCount()) += "\t\t";
 			outStr += to_string(static_cast<double>(totalLength) / (time + 1));
 			
-			cout << outStr << endl;
+			if (g_isDetailedOut) cout << outStr << endl;
 		}
 		collector.at(iterator) = InfoNode(static_cast<double>(totalLength) / g_totalTime, totalLength);
 
 		cout << "[TIME OUT]" << endl;
 		cout << "Максимальный объём занимаемой памяти: " << RAM.getMaxSegmentsCount() << endl << endl;
+
+		cout << "[СВОДНЫЙ ГРАФИК РАБОТЫ ПРОГРАММЫ]" << endl << endl;
+		chart.out_graphic();
+		cout << endl << endl;
 	}
 
 	cout.precision(2);
-	cout << "Итоги после " << g_numIterations << " Итераций" << endl;
+	cout << "[Итоги после " << g_numIterations << " Итераций]" << endl;
 	cout << "Номер\t";
 	for (int i = 1; i <= g_numIterations; ++i) {
 		cout << i << "\t\t";
@@ -238,8 +286,9 @@ int main() {
 		cout << collector.at(i).maxLength << "\t\t";
 	}
 	cout << endl;
-
-	cout << "\nДля продолжения нажмите ввод";
+#endif
+	
+	std::cout << "\nДля продолжения нажмите ввод";
 	cin.get();
 	return 0;
 }
