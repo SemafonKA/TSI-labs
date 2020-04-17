@@ -6,6 +6,7 @@
 #include <random>
 #include <array>
 #include <vector>
+#include <windows.h>
 #include "Dlist.h"
 
 using namespace std;
@@ -212,10 +213,8 @@ public:
 		cout << endl;
 		for (int i = outMatrix.size() - 1; i >= 0; i--) {
 			cout << outMatrix[i] << endl;
-		}/*
-		for (auto str : outMatrix) {
-			cout << str << endl;
-		}*/
+			Sleep(5);
+		}
 	}
 };
 
@@ -227,7 +226,7 @@ int main() {
 #else
 	array<InfoNode, g_numIterations> collector;
 	for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
-		cout << "Проход номер " << iterator + 1 << endl << endl;
+		cout << "[Проход номер " << iterator + 1 << "]" << endl << endl;
 		Memory RAM;
 		Files file(g_maxFileSize);
 		Delay delay(g_maxInterval);
@@ -269,6 +268,7 @@ int main() {
 		cout << "[СВОДНЫЙ ГРАФИК РАБОТЫ ПРОГРАММЫ]" << endl << endl;
 		chart.out_graphic();
 		cout << endl << endl;
+		Sleep(1000);
 	}
 
 	cout.precision(2);
