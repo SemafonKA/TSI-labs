@@ -18,7 +18,7 @@ constexpr time_t g_totalTime = 15;
 const     bool   g_isDetailedOut = false;
 constexpr time_t g_totalTime = 86400;
 #endif
-constexpr size_t g_numIterations = 5;
+constexpr size_t g_numIterations = 6;
 constexpr size_t g_maxFileSize = 10;
 constexpr time_t g_maxInterval = 10;
 
@@ -146,179 +146,106 @@ struct InfoNode {
 };
 
 int main() {
-	system("chcp 65001"); /*system("mode con cols=180 lines=3000"); */ system("cls");
-	{
-		cout << "[Тест для системы, в которой файлы берутся последовательно]" << endl;
-		array<InfoNode, g_numIterations> collector;
-		for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
-			cout << "[Проход номер " << iterator + 1 << "]" << endl << endl;
-			Memory RAM;
-			Delay delay(g_maxInterval);
-			Files* newFile{ nullptr };
-			Computer system;
+	system("chcp 65001"); system("mode con cols=180 lines=3000");  system("cls");
 
-			if (g_isDetailedOut)
-				cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее\t\t" << "Число файлов в памяти" << endl;
+	cout << "Формат вывода: Данные для линейного выполнения / Данные для выполнения по минимуму" << endl << endl;
+	array<InfoNode, g_numIterations> collectorLinear, collectorMinimal;
+	for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
+		cout << "[Проход номер " << iterator + 1 << "]" << endl << endl;
+		Memory RAMlinear, RAMminimal;
+		Delay delay(g_maxInterval);
+		Files* newFileLinear{ nullptr }, * newFileMinimal{ nullptr };
+		Computer systemLinear, systemMinimal;
 
-			uint64_t totalLength{};
-			uint64_t totalFilesInRAM{};
-			string outStr;
+		if (g_isDetailedOut)
+			cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее\t\t\t" << "Число файлов в памяти" << endl;
 
-			for (time_t time = 0; time < g_totalTime; ++time) {
+		uint64_t totalLengthLinear{}, totalLengthMinimal{};
+		uint64_t totalFilesInRAMLinear{}, totalFilesInRAMMinimal{};
+		string outStr;
+
+		for (time_t time = 0; time < g_totalTime; ++time) {
+			if (g_isDetailedOut) {
+				outStr.clear();
+				outStr += to_string(time + 1) += "\t\t";
+			}
+
+			systemLinear.tick(RAMlinear);
+			systemMinimal.tick_min(RAMminimal);
+			if (delay.getInterval() == 0) {
+				newFileLinear = new Files(randR(1, g_maxFileSize));
+				newFileMinimal = new Files(newFileLinear->getSize());
+
+				getNewDelay(delay);
+				RAMlinear.addFile(newFileLinear);
+				RAMminimal.addFile(newFileMinimal);
 				if (g_isDetailedOut) {
-					outStr.clear();
-					outStr += to_string(time + 1) += "\t\t";
-				}
-
-				system.tick(RAM);
-				if (delay.getInterval() == 0) {
-					newFile = new Files(randR(1, g_maxFileSize));
-					getNewDelay(delay);
-					RAM.addFile(newFile);
-					if (g_isDetailedOut) {
-						outStr += to_string(RAM.getSegmentsCount()) += "\t(добавлен новый файл размером ";
-						outStr += to_string(newFile->getSize()) += " )\t";
-					}
-				}
-				else {
-					delay.tick();
-					if (g_isDetailedOut)
-						outStr += to_string(RAM.getSegmentsCount()) += "\t\t\t\t\t\t";
-				}
-
-				totalFilesInRAM += RAM.getFilesCount();
-				totalLength += RAM.getSegmentsCount();
-
-				if (g_isDetailedOut) {
-					outStr += to_string(RAM.getMaxSegmentsCount()) += "\t\t";
-					outStr += to_string(static_cast<double>(totalLength) / (time + 1)) += "\t";
-					outStr += to_string(RAM.getFilesCount());
-					cout << outStr << endl;
-					Sleep(20);
+					outStr += to_string(RAMlinear.getSegmentsCount()) += " / ";
+					outStr += to_string(RAMminimal.getSegmentsCount()) += "\t(добавлен новый файл размером ";
+					outStr += to_string(newFileLinear->getSize()) += " )\t";
 				}
 			}
-			collector.at(iterator) = InfoNode(static_cast<double>(totalLength) / g_totalTime, RAM.getMaxSegmentsCount(), static_cast<double>(totalFilesInRAM) / g_totalTime, RAM.getMaxFilesCount());
-
-			cout << "[TIME OUT]" << endl;
-			cout << "Максимальный объём занимаемой памяти: " << RAM.getMaxSegmentsCount() << endl;
-			cout << "Максимальное число файлов в памяти: " << RAM.getMaxFilesCount() << endl << endl;
-
-			cout << endl << endl;
-			Sleep(500);
-		}
-
-		cout.precision(4);
-		cout << "[Итоги после " << g_numIterations << " Итераций для системы, в которой файлы берутся последовательно]" << endl;
-		cout << "Номер\t\t\t\t\t";
-		for (int i = 1; i <= g_numIterations; ++i) {
-			cout << i << "\t\t";
-		}
-		cout << endl << "Среднее число сегментов в памяти: \t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).mean << "\t\t";
-		}
-		cout << endl << "Максимальное число сегментов: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).maxLength << "\t\t";
-		}
-		cout << endl << "Среднее число файлов в памяти: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).meanFiles << "\t\t";
-		}
-		cout << endl << "Максимальное число файлов: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).maxFilesCount << "\t\t";
-		}
-		cout << endl << endl << endl << endl << endl;
-		cout.precision(8);
-	}
-	{
-		cout << "[Тест для системы, в которой берутся минимальные файлы]" << endl;
-		array<InfoNode, g_numIterations> collector;
-		for (int iterator{ 0 }; iterator < g_numIterations; ++iterator) {
-			cout << "[Проход номер " << iterator + 1 << "]" << endl << endl;
-			Memory RAM;
-			Delay delay(g_maxInterval);
-			Files* newFile{ nullptr };
-			Computer system;
-
-			if (g_isDetailedOut)
-				cout << "Период\t\t" << "Количество сегментов\t\t\t\t" << "Максимальное\t" << "Среднее\t\t" << "Число файлов в памяти" << endl;
-
-			uint64_t totalLength{};
-			uint64_t totalFilesInRAM{};
-			string outStr;
-
-			for (time_t time = 0; time < g_totalTime; ++time) {
+			else {
+				delay.tick();
 				if (g_isDetailedOut) {
-					outStr.clear();
-					outStr += to_string(time + 1) += "\t\t";
-				}
-
-				system.tick_min(RAM);
-				if (delay.getInterval() == 0) {
-					newFile = new Files(randR(1, g_maxFileSize));
-					getNewDelay(delay);
-					RAM.addFile(newFile);
-					if (g_isDetailedOut) {
-						outStr += to_string(RAM.getSegmentsCount()) += "\t(добавлен новый файл размером ";
-						outStr += to_string(newFile->getSize()) += " )\t";
-					}
-				}
-				else {
-					delay.tick();
-					if (g_isDetailedOut)
-						outStr += to_string(RAM.getSegmentsCount()) += "\t\t\t\t\t\t";
-				}
-
-				totalFilesInRAM += RAM.getFilesCount();
-				totalLength += RAM.getSegmentsCount();
-
-				if (g_isDetailedOut) {
-					outStr += to_string(RAM.getMaxSegmentsCount()) += "\t\t";
-					outStr += to_string(static_cast<double>(totalLength) / (time + 1)) += "\t";
-					outStr += to_string(RAM.getFilesCount());
-					cout << outStr << endl;
-					Sleep(20);
+					outStr += to_string(RAMlinear.getSegmentsCount()) += " / ";
+					outStr += to_string(RAMminimal.getSegmentsCount()) += "\t\t\t\t\t\t";
 				}
 			}
-			collector.at(iterator) = InfoNode(static_cast<double>(totalLength) / g_totalTime, RAM.getMaxSegmentsCount(), static_cast<double>(totalFilesInRAM) / g_totalTime, RAM.getMaxFilesCount());
 
-			cout << "[TIME OUT]" << endl;
-			cout << "Максимальный объём занимаемой памяти: " << RAM.getMaxSegmentsCount() << endl;
-			cout << "Максимальное число файлов в памяти: " << RAM.getMaxFilesCount() << endl << endl;
+			totalFilesInRAMLinear  += RAMlinear.getFilesCount();
+			totalFilesInRAMMinimal += RAMminimal.getFilesCount();
+			totalLengthLinear  += RAMlinear.getSegmentsCount();
+			totalLengthMinimal += RAMminimal.getSegmentsCount();
 
-			cout << endl << endl;
-			Sleep(500);
+			if (g_isDetailedOut) {
+				outStr += to_string(RAMlinear.getMaxSegmentsCount()) += " / ";
+				outStr += to_string(RAMminimal.getMaxSegmentsCount()) += "\t\t";
+				outStr += to_string(static_cast<double>(totalLengthLinear) / (time + 1)) += " / ";
+				outStr += to_string(static_cast<double>(totalLengthMinimal) / (time + 1)) += "\t";
+				outStr += to_string(RAMlinear.getFilesCount()) += " / ";
+				outStr += to_string(RAMminimal.getFilesCount());
+				cout << outStr << endl;
+				Sleep(20);
+			}
 		}
+		collectorLinear.at(iterator) = InfoNode(static_cast<double>(totalLengthLinear) / g_totalTime, RAMlinear.getMaxSegmentsCount(), static_cast<double>(totalFilesInRAMLinear) / g_totalTime, RAMlinear.getMaxFilesCount());
+		collectorMinimal.at(iterator) = InfoNode(static_cast<double>(totalLengthMinimal) / g_totalTime, RAMminimal.getMaxSegmentsCount(), static_cast<double>(totalFilesInRAMMinimal) / g_totalTime, RAMminimal.getMaxFilesCount());
 
-		cout.precision(4);
-		cout << "[Итоги после " << g_numIterations << " Итераций для системы, в которой берутся минимальные файлы]" << endl;
-		cout << "Номер\t\t\t\t\t";
-		for (int i = 1; i <= g_numIterations; ++i) {
-			cout << i << "\t\t";
-		}
-		cout << endl << "Среднее число сегментов в памяти: \t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).mean << "\t\t";
-		}
-		cout << endl << "Максимальное число сегментов: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).maxLength << "\t\t";
-		}
-		cout << endl << "Среднее число файлов в памяти: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).meanFiles << "\t\t";
-		}
-		cout << endl << "Максимальное число файлов: \t\t";
-		for (int i = 0; i < g_numIterations; ++i) {
-			cout << collector.at(i).maxFilesCount << "\t\t";
-		}
-		cout << endl << endl << endl;
-		cout.precision(8);
+		cout << "[TIME OUT]" << endl;
+		cout << "Максимальный объём занимаемой памяти: " << RAMlinear.getMaxSegmentsCount() << " / " << RAMminimal.getMaxSegmentsCount() << endl;
+		cout << "Максимальное число файлов в памяти: " << RAMlinear.getMaxFilesCount() << " / " << RAMminimal.getMaxFilesCount() << endl << endl;
+
+		cout << endl << endl;
+		Sleep(500);
 	}
+
+	cout.precision(4);
+	cout << "[Итоги после " << g_numIterations << " Итераций]" << endl;
+	cout << "Номер\t\t\t\t\t";
+	for (int i = 1; i <= g_numIterations; ++i) {
+		cout << i << "\t\t\t";
+	}
+	cout << endl << "Среднее число сегментов в памяти: \t";
+	for (int i = 0; i < g_numIterations; ++i) {
+		cout << collectorLinear.at(i).mean << " / " << collectorMinimal.at(i).mean << "\t\t";
+	}
+	cout << endl << "Максимальное число сегментов: \t\t";
+	for (int i = 0; i < g_numIterations; ++i) {
+		cout << collectorLinear.at(i).maxLength << " / " << collectorMinimal.at(i).maxLength << "\t\t\t";
+	}
+	cout << endl << "Среднее число файлов в памяти: \t\t";
+	for (int i = 0; i < g_numIterations; ++i) {
+		cout << collectorLinear.at(i).meanFiles << " / " << collectorMinimal.at(i).meanFiles << "\t\t";
+	}
+	cout << endl << "Максимальное число файлов: \t\t";
+	for (int i = 0; i < g_numIterations; ++i) {
+		cout << collectorLinear.at(i).maxFilesCount << " / " << collectorMinimal.at(i).maxFilesCount << "\t\t\t";
+	}
+	cout << endl << endl << endl << endl << endl;
 
 	std::cout << "\nДля продолжения нажмите ввод";
+	cin.ignore(cin.rdbuf()->in_avail());
 	cin.get();
 	return 0;
 }
