@@ -7,7 +7,7 @@
 #include <array>
 #include <vector>
 #include <windows.h>
-#include "./Dlist/Dlist.h"
+#include "../Dlist/Dlist.h"
 
 using namespace std;
 
